@@ -52,9 +52,13 @@ jobs:
           echo "Updating $current -> $version ($sha)."
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
+      # Homebrew loads a non-official tap only once it's trusted (https://docs.brew.sh/Tap-Trust).
+      # People installing by the full name, ark0n/tap/logolight, trust just this cask by doing so.
       - name: Tap this checkout
         if: steps.update.outputs.changed != 'false'
-        run: brew tap ark0n/tap "$GITHUB_WORKSPACE"
+        run: |
+          brew tap ark0n/tap "$GITHUB_WORKSPACE"
+          brew trust ark0n/tap
 
       - name: brew style
         if: steps.update.outputs.changed != 'false'
