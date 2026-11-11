@@ -1,6 +1,6 @@
 cask "logolight" do
-  version "1.3.0"
-  sha256 "7f3e731a99a4345168a26ccf06fb8b557d1de3571470ca892b20d41feba15ca7"
+  version "1.3.1"
+  sha256 "9e7660c8aac1b71af406ba2b20fa7dc8abf92882bbb1dba07d52666f68f0c96c"
 
   url "https://github.com/Ark0N/LogoLight/releases/download/v#{version}/LogoLight-#{version}.zip",
       verified: "github.com/Ark0N/LogoLight/"
