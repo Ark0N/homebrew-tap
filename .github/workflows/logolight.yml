@@ -1,0 +1,78 @@
+# Keeps Casks/logolight.rb on LogoLight's latest GitHub release, and checks it.
+#
+# Daily (or by hand: gh workflow run logolight.yml -R Ark0N/homebrew-tap), it looks for a newer
+# release, points the cask at it, and pushes that only after brew style, brew audit and a real
+# install and uninstall pass. On a push or pull request, it runs the same checks.
+name: LogoLight
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  cask:
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Point the cask at the latest release
+        id: update
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cask=Casks/logolight.rb
+          tag=$(gh release view -R Ark0N/LogoLight --json tagName -q .tagName)
+          version=${tag#v}
+          current=$(sed -n 's/^  version "\(.*\)"$/\1/p' "$cask")
+          if [ "$version" = "$current" ]; then
+            echo "Already at $version."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          curl -fsSL -o "$RUNNER_TEMP/LogoLight.zip" \
+            "https://github.com/Ark0N/LogoLight/releases/download/$tag/LogoLight-$version.zip"
+          sha=$(shasum -a 256 "$RUNNER_TEMP/LogoLight.zip" | cut -d' ' -f1)
+          sed -i '' -e "s/^  version \".*\"$/  version \"$version\"/" \
+                    -e "s/^  sha256 \".*\"$/  sha256 \"$sha\"/" "$cask"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "logolight $version"
+          echo "Updating $current -> $version ($sha)."
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Tap this checkout
+        if: steps.update.outputs.changed != 'false'
+        run: brew tap ark0n/tap "$GITHUB_WORKSPACE"
+
+      - name: brew style
+        if: steps.update.outputs.changed != 'false'
+        run: brew style ark0n/tap
+
+      - name: brew audit
+        if: steps.update.outputs.changed != 'false'
+        run: brew audit --cask --online --strict ark0n/tap/logolight
+
+      - name: Install and uninstall
+        if: steps.update.outputs.changed != 'false'
+        run: |
+          brew install --cask ark0n/tap/logolight
+          test -x /Applications/LogoLight.app/Contents/MacOS/LogoLight
+          spctl -a -vv /Applications/LogoLight.app
+          brew uninstall --zap --cask logolight
+          test ! -e /Applications/LogoLight.app
+
+      - name: Push the update
+        if: steps.update.outputs.changed == 'true'
+        run: git push
