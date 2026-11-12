@@ -2,7 +2,8 @@
 #
 # Daily (or by hand: gh workflow run logolight.yml -R Ark0N/homebrew-tap), it looks for a newer
 # release, points the cask at it, and pushes that only after brew style, brew audit and a real
-# install and uninstall pass. On a push or pull request, it runs the same checks.
+# install and uninstall pass. Started by hand, on a push or on a pull request, it always runs the
+# checks; the daily run checks only when there's a new release.
 name: LogoLight
 
 on:
@@ -58,21 +59,21 @@ jobs:
       # Homebrew loads a non-official tap only once it's trusted (https://docs.brew.sh/Tap-Trust).
       # People installing by the full name, ark0n/tap/logolight, trust just this cask by doing so.
       - name: Tap this checkout
-        if: steps.update.outputs.changed != 'false'
+        if: github.event_name != 'schedule' || steps.update.outputs.changed == 'true'
         run: |
           brew tap ark0n/tap "$GITHUB_WORKSPACE"
           brew trust ark0n/tap
 
       - name: brew style
-        if: steps.update.outputs.changed != 'false'
+        if: github.event_name != 'schedule' || steps.update.outputs.changed == 'true'
         run: brew style ark0n/tap
 
       - name: brew audit
-        if: steps.update.outputs.changed != 'false'
+        if: github.event_name != 'schedule' || steps.update.outputs.changed == 'true'
         run: brew audit --cask --online --strict ark0n/tap/logolight
 
       - name: Install and uninstall
-        if: steps.update.outputs.changed != 'false'
+        if: github.event_name != 'schedule' || steps.update.outputs.changed == 'true'
         run: |
           brew install --cask ark0n/tap/logolight
           test -x /Applications/LogoLight.app/Contents/MacOS/LogoLight
